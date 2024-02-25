@@ -1,0 +1,216 @@
+---
+title: "Testing-duckplyr_Vs_Polars"
+output:
+  html_notebook:
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    toc_depth: 6
+  html_document:
+    toc: true
+    toc_depth: '6'
+    df_print: paged
+date: "2024-02-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+```{r}
+library(duckplyr)
+library(tidyverse)
+library(polars)
+library(microbenchmark)
+library(conflicted)
+conflict_prefer("filter", "duckplyr")
+```
+
+```{r}
+duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",table_function = "read_csv_auto")
+```
+
+```{r}
+perf_7mb__duck <- microbenchmark(
+               tidy = readr::read_csv("bse_compiled_2023_04_13.csv"),
+               polars = pl$read_csv("bse_compiled_2023_04_13.csv"),
+               polars_df = pl$read_csv("bse_compiled_2023_04_13.csv") |> as.data.frame(),
+               duckplyr = duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",
+                                                          table_function = "read_csv_auto"),
+               duckplyr_df = duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",
+                                                          table_function = "read_csv_auto") |>
+                 as.data.frame()
+)
+
+perf_7mb__duck
+```
+
+```{r}
+autoplot(perf_7mb__duck)
+```
+
+## Read & head()
+
+```{r}
+perf_test_duck_fn <- function(data_file){
+  perf_data <<- microbenchmark(
+               tidy = readr::read_csv(data_file) %>% head(n=10),
+               
+               duckplyr = duckplyr::duckplyr_df_from_file(data_file,
+                                                          table_function = "read_csv_auto") %>%
+                 head(n=10),
+               
+               polars = pl$read_csv(data_file) |> as.data.frame() %>%
+               head(n=10),
+               
+               polars_head = pl$read_csv(data_file)$head(n=10) |>
+               as.data.frame(),
+               
+               polars_lazy_head = pl$scan_csv(data_file)$head(n=10)$collect(),
+               
+               polars_lazy_head_df = pl$scan_csv(data_file)$head(n=10) |> as.data.frame()
+  )
+  return( perf_data)
+}
+```
+
+
+```{r}
+perf_test_duck_fn("bse_compiled_2023_04_13.csv")
+```
+
+```{r}
+autoplot(perf_data)
+```
+
+
+## Read only
+
+```{r}
+perf_test_duck_full <- function(data_file){
+  perf_data <<- microbenchmark(
+               tidy = readr::read_csv(data_file),
+               
+               duckplyr = duckplyr::duckplyr_df_from_file(data_file,
+                                                          table_function = "read_csv_auto"),
+               
+               polars = pl$read_csv(data_file),
+               
+               polars_df = pl$read_csv(data_file) |> as.data.frame(),
+               
+               polars_lazy_df = pl$scan_csv(data_file)$collect()
+  )
+  return( perf_data)
+}
+```
+
+### 7mb file
+
+```{r}
+perf_test_duck_full("bse_compiled_2023_04_13.csv")
+```
+
+```{r}
+autoplot(perf_data)
+```
+
+### 87mb file
+
+```{r}
+perf_test_duck_full("T_ONTIME_REPORTING.csv")
+```
+
+```{r}
+autoplot(perf_data)
+```
+
+## Read & Manipulation
+
+```{r}
+duckplyr::duckplyr_df_from_file("T_ONTIME_REPORTING.csv",
+                                table_function = "read_csv_auto") %>%
+  duckplyr::filter(ORIGIN == "JFK") %>% 
+  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+  summarise(counts = n())
+```
+
+### 87mb file
+
+```{r}
+perf_mainpulation <- microbenchmark(
+          polars = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")),
+          
+          polars_df = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")) |> as.data.frame(),
+          
+          polars_lazy = pl$scan_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts"))$collect(),
+          
+          polars_lazy_df = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")) |> as.data.frame(),
+          
+          tidy = read_csv("T_ONTIME_REPORTING.csv") %>% 
+                  filter(ORIGIN == "JFK") %>% 
+                  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+                  summarise(counts = n()),
+          
+          duckplyr = duckplyr::duckplyr_df_from_file("T_ONTIME_REPORTING.csv",
+                                table_function = "read_csv_auto") %>%
+                      duckplyr::filter(ORIGIN == "JFK") %>% 
+                      group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+                      summarise(counts = n())
+)
+
+perf_mainpulation
+```
+
+```{r}
+autoplot(perf_mainpulation)
+```
+
+## profvis
+
+```{r}
+library(profvis)
+```
+
+### 7mb file
+
+```{r}
+profvis({
+  duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",
+                                table_function = "read_csv_auto")
+})
+```
+
+![an image caption Source: profvis data](V:/1. R & Python work/3. R/Polars_in_R/8_pl_profvis.PNG)
+
+### 87mb file
+
+```{r}
+profvis({
+  duckplyr::duckplyr_df_from_file("T_ONTIME_REPORTING.csv",
+                                table_function = "read_csv_auto")
+})
+```
+
+![an image caption Source: profvis data](V:/1. R & Python work/3. R/Polars_in_R/9_pl_profvis.PNG)
+
+
+
+
+
