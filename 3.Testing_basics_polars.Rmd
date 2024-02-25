@@ -1,6 +1,10 @@
 ---
 title: "Testing-Polars_usage"
 output:
+  html_document:
+    toc: true
+    toc_depth: '6'
+    df_print: paged
   html_notebook:
     highlight: tango
     df_print: paged
@@ -10,10 +14,6 @@ output:
       smooth_scroll: false
     number_sections: false
     toc_depth: 6
-  html_document:
-    toc: true
-    toc_depth: '6'
-    df_print: paged
 date: "2024-02-24"
 ---
 
