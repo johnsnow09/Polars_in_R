@@ -1,0 +1,260 @@
+---
+title: "Testing-Polars_usage"
+output:
+  html_notebook:
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    toc_depth: 6
+  html_document:
+    toc: true
+    toc_depth: '6'
+    df_print: paged
+date: "2024-02-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+```{r cars}
+library(polars)
+library(tidyverse)
+library(microbenchmark)
+```
+
+# microbenchmark
+
+## 7mb file benchmark
+
+```{r}
+perf_7mb_file <- microbenchmark(
+               tidy = readr::read_csv("bse_compiled_2023_04_13.csv"),
+               polars = pl$read_csv("bse_compiled_2023_04_13.csv")
+)
+
+perf_7mb_file
+```
+
+```{r}
+autoplot(perf_7mb_file)
+```
+
+## 7mb df benchmark
+
+**Reading as `Polars` and then converting to tidy data frame**
+
+```{r}
+perf_7mb_df <- microbenchmark(
+               tidy = readr::read_csv("bse_compiled_2023_04_13.csv"),
+               polars = pl$read_csv("bse_compiled_2023_04_13.csv") |> as.data.frame()
+)
+
+perf_7mb_df
+```
+
+```{r}
+autoplot(perf_7mb_df)
+```
+
+## 7mb head benchmark
+
+**Reading as `Polars` and then converting to tidy data frame and taking `head`**
+
+```{r}
+perf_testing_fn <- function(data_file){
+  perf_data <<- microbenchmark(
+               tidy = readr::read_csv(data_file) %>% head(n=10),
+               polars = pl$read_csv(data_file) |> as.data.frame() %>%
+               head(n=10),
+               polars_head = pl$read_csv(data_file)$head(n=10) |>
+               as.data.frame(),
+               polars_lazy_head = pl$scan_csv(data_file)$head(n=10)$collect(),
+               polars_lazy_head_df = pl$scan_csv(data_file)$head(n=10) |> as.data.frame()
+  )
+  return( perf_data)
+}
+```
+
+```{r}
+perf_testing_fn("bse_compiled_2023_04_13.csv")
+```
+
+```{r}
+autoplot(perf_data)
+```
+
+## 87mb head benchmark
+
+**Reading as `Polars` and then converting to tidy data frame and taking `head`**
+
+```{r}
+perf_testing_fn("T_ONTIME_REPORTING.csv")
+```
+
+```{r}
+autoplot(perf_data)
+```
+
+## FilterGroupAgg
+
+Data
+
+```{r}
+
+pl$read_csv("T_ONTIME_REPORTING.csv") |> as.data.frame()
+```
+
+
+```{r}
+pl$read_csv("T_ONTIME_REPORTING.csv")$
+  filter(pl$col("ORIGIN") == "JFK")$
+  group_by("ORIGIN_CITY_NAME")$
+  agg(pl$col("DEST_CITY_NAME")$n_unique())
+```
+
+
+```{r}
+pl$read_csv("T_ONTIME_REPORTING.csv")$
+  filter(pl$col("ORIGIN") == "JFK")$
+  group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+  agg(pl$len()$alias("counts"))
+
+# `pl$count()` is deprecated and will be removed in 0.15.0. Use `pl$len()`
+```
+
+```{r}
+read_csv("T_ONTIME_REPORTING.csv") %>% 
+  filter(ORIGIN == "JFK") %>% 
+  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+  summarise(counts = n())
+```
+
+## FilterGroup Benchmark
+
+```{r}
+perf_mainpulation <- microbenchmark(
+          polars = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")),
+          
+          polars_df = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")) |> as.data.frame(),
+          
+          polars_lazy = pl$scan_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts"))$collect(),
+          
+          polars_lazy_df = pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")) |> as.data.frame(),
+          
+          tidy = read_csv("T_ONTIME_REPORTING.csv") %>% 
+                  filter(ORIGIN == "JFK") %>% 
+                  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+                  summarise(counts = n())
+)
+
+perf_mainpulation
+```
+
+
+```{r}
+autoplot(perf_mainpulation)
+```
+
+# profvis
+
+```{r}
+library(profvis)
+```
+
+## 7mb file
+
+```{r}
+profvis({
+  pl$read_csv("bse_compiled_2023_04_13.csv") |>
+    as.data.frame()
+})
+```
+
+![an image caption Source: profvis data](V:/1. R & Python work/3. R/Polars_in_R/1_pl_profvis.PNG)
+
+
+```{r}
+profvis({
+  read_csv("bse_compiled_2023_04_13.csv")
+})
+```
+
+![an image caption Source: profvis data](V:/1. R & Python work/3. R/Polars_in_R/2_pl_profvis.PNG)
+
+## 87mb file
+
+```{r}
+profvis({
+  pl$read_csv("T_ONTIME_REPORTING.csv") |>
+    as.data.frame()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/3_pl_profvis.PNG)
+
+```{r}
+profvis({
+  read_csv("T_ONTIME_REPORTING.csv")
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/4_pl_profvis.PNG)
+
+
+```{r}
+profvis({
+  pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts"))
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/5_pl_profvis.PNG)
+
+
+```{r}
+profvis({
+  pl$read_csv("T_ONTIME_REPORTING.csv")$
+                    filter(pl$col("ORIGIN") == "JFK")$
+                    group_by(c("ORIGIN_CITY_NAME","DEST_CITY_NAME"))$
+                    agg(pl$len()$alias("counts")) |>
+  as.data.frame()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/6_pl_profvis.PNG)
+
+
+**tidy approach**
+
+```{r}
+profvis({
+  read_csv("T_ONTIME_REPORTING.csv") %>% 
+                  filter(ORIGIN == "JFK") %>% 
+                  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+                  summarise(counts = n())
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/7_pl_profvis.PNG)
+
+

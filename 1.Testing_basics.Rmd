@@ -1,0 +1,188 @@
+---
+title: "Testing Polars"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-02-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+install.packages("polars", repos = "https://rpolars.r-universe.dev")
+library(polars)
+```
+
+
+```{r}
+# library(dplyr, warn.conflicts = FALSE)
+# library(tidypolars)
+library(polars)
+library(tidyverse)
+```
+
+```{r}
+library(polars)
+```
+
+```{r}
+polars_code_completion_activate()
+```
+
+```{r}
+pl$DataFrame(iris)
+```
+
+
+```{r}
+pl$read_csv("df_stack.csv", infer_schema_length=10000)
+```
+
+
+```{r}
+pl$read_csv("bse_compiled_2023_04_13.csv")
+```
+
+## Benchmark
+
+```{r}
+read_time_pl <- function(data) { 
+      start_time <- Sys.time()
+      pl$read_csv(data)
+      end_time <- Sys.time()
+      return (end_time - start_time)
+}
+
+read_time_pl("bse_compiled_2023_04_13.csv")
+```
+
+```{r}
+read_time_tidy <- function(data) { 
+      start_time <- Sys.time()
+      read_csv(data)
+      end_time <- Sys.time()
+      return (end_time - start_time)
+}
+
+read_time_tidy("bse_compiled_2023_04_13.csv")
+```
+
+## rbenchmark 
+
+```{r}
+library(rbenchmark)
+```
+
+```{r}
+# 7mb file
+benchmark("tidy" = {read_time_tidy("bse_compiled_2023_04_13.csv")},
+          "polars" = {read_time_pl("bse_compiled_2023_04_13.csv")},
+          replications = 10,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+
+```{r}
+# 7mb file
+benchmark("tidy" = {read_time_tidy("bse_compiled_2023_04_13.csv")},
+          "polars" = {read_time_pl("bse_compiled_2023_04_13.csv")},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+## Benchmark LageFile
+
+### Polars 1:13 Faster
+
+```{r}
+# 87MB file
+benchmark("tidy" = {read_csv("T_ONTIME_REPORTING.csv")},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")},
+          replications = 10,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+### Polars 1:7 Faster
+
+```{r}
+# 87MB file
+benchmark("tidy" = {read_csv("T_ONTIME_REPORTING.csv")},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+## Memory size
+
+```{r}
+bse_pl <- pl$read_csv("bse_compiled_2023_04_13.csv")
+bse_pl
+```
+
+```{r}
+bse_pl$estimated_size()
+```
+
+```{r}
+bse_tidy <- read_csv("bse_compiled_2023_04_13.csv")
+bse_tidy
+```
+
+```{r}
+object.size(bse_tidy)
+```
+
+```{r}
+flights_pl <- pl$read_csv("T_ONTIME_REPORTING.csv")
+flights_pl
+```
+
+```{r}
+flights_tidy <- read_csv("T_ONTIME_REPORTING.csv")
+flights_tidy
+```
+
+```{r}
+flights_pl$estimated_size() / 1000000
+```
+
+```{r}
+object.size(flights_tidy)
+```
+
+```{r}
+pl$scan_csv("T_ONTIME_REPORTING.csv")$head(n=10)$collect()
+```
+
+## Final Benchmark 1:1000
+
+```{r}
+# 87MB file
+benchmark("tidy" = {read_csv("T_ONTIME_REPORTING.csv") %>% head(10)},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")$head(10)},
+          "polars_lazy" = {pl$scan_csv("T_ONTIME_REPORTING.csv")$head(10)},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

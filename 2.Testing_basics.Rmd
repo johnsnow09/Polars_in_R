@@ -1,0 +1,221 @@
+---
+title: "2.Testing_more.Rmd"
+output:
+  html_notebook:
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    toc_depth: 6
+  html_document:
+    toc: true
+    toc_depth: '6'
+    df_print: paged
+date: "2024-02-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## R Markdown
+
+
+```{r}
+library(polars)
+library(tidyverse)
+library(rbenchmark)
+```
+
+```{r}
+# polars_code_completion_activate()
+```
+
+
+```{r}
+pl$DataFrame(iris)
+```
+
+
+```{r}
+# gives error
+# pl$read_csv("df_stack.csv")
+```
+
+```{r}
+# gives error
+# pl$read_csv("df_stack.csv", infer_schema_length=10000)
+```
+
+
+```{r}
+pl$read_csv("df_stack.csv", ignore_error=TRUE)
+```
+
+```{r}
+pl$read_csv("bse_compiled_2023_04_13.csv")
+```
+
+## Benchmark
+
+```{r}
+read_time_pl <- function(data) { 
+      start_time <- Sys.time()
+      pl$read_csv(data)
+      end_time <- Sys.time()
+      return (end_time - start_time)
+}
+
+read_time_pl("bse_compiled_2023_04_13.csv")
+```
+
+```{r}
+read_time_tidy <- function(data) { 
+      start_time <- Sys.time()
+      readr::read_csv(data)
+      end_time <- Sys.time()
+      return (end_time - start_time)
+}
+
+read_time_tidy("bse_compiled_2023_04_13.csv")
+```
+
+## rbenchmark 
+
+```{r}
+library(rbenchmark)
+```
+
+
+
+### Polars 1:18 Faster
+
+```{r}
+# 7mb file
+benchmark("tidy" = {readr::read_csv("bse_compiled_2023_04_13.csv")},
+          "polars" = {pl$read_csv("bse_compiled_2023_04_13.csv")},
+          replications = 10,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+### Polars 1:23 Faster
+
+```{r}
+# 7mb file
+benchmark("tidy" = {readr::read_csv("bse_compiled_2023_04_13.csv")},
+          "polars" = {pl$read_csv("bse_compiled_2023_04_13.csv")},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+## Benchmark LageFile
+
+### Polars 1:13 Faster
+
+```{r}
+# 87MB file
+benchmark("tidy" = {readr::read_csv("T_ONTIME_REPORTING.csv")},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")},
+          replications = 10,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+### Polars 1:9 Faster
+
+```{r}
+# 87MB file
+benchmark("tidy" = {readr::read_csv("T_ONTIME_REPORTING.csv")},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+## Memory size
+
+```{r}
+bse_pl <- pl$read_csv("bse_compiled_2023_04_13.csv")
+bse_pl
+```
+
+```{r}
+bse_pl$estimated_size()
+```
+
+```{r}
+bse_tidy <- readr::read_csv("bse_compiled_2023_04_13.csv")
+bse_tidy
+```
+
+```{r}
+object.size(bse_tidy)
+```
+
+```{r}
+flights_pl <- pl$read_csv("T_ONTIME_REPORTING.csv")
+flights_pl
+```
+
+```{r}
+flights_tidy <- readr::read_csv("T_ONTIME_REPORTING.csv")
+flights_tidy
+```
+
+```{r}
+flights_pl$estimated_size() / 1000000
+```
+
+```{r}
+object.size(flights_tidy)
+```
+
+```{r}
+pl$scan_csv("T_ONTIME_REPORTING.csv")$head(n=10)$collect()
+```
+
+## Final Benchmark 1:2600
+
+```{r}
+# 87MB file
+benchmark("tidy" = {utils::head(readr::read_csv("T_ONTIME_REPORTING.csv"),10)},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")$head(10)},
+          "polars_lazy" = {pl$scan_csv("T_ONTIME_REPORTING.csv")$head(10)},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+## Benchmark asdataframe
+
+keeping head() data
+
+```{r}
+# 87MB file
+benchmark("tidy" = {utils::head(readr::read_csv("T_ONTIME_REPORTING.csv"),10)},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")$head(10)},
+          "polars_lazy" = {pl$scan_csv("T_ONTIME_REPORTING.csv")$head(10) |> as.data.frame()},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+
+```{r}
+# 87MB file
+benchmark("tidy" = {readr::read_csv("T_ONTIME_REPORTING.csv")},
+          "polars" = {pl$read_csv("T_ONTIME_REPORTING.csv")},
+          "polars_df" = {pl$read_csv("T_ONTIME_REPORTING.csv") |> as.data.frame()},
+          "polars_lazy_df" = {pl$scan_csv("T_ONTIME_REPORTING.csv") |> as.data.frame()},
+          replications = 20,
+          columns = c("test", "replications", "elapsed",
+                      "relative", "user.self", "sys.self"))
+```
+
+
+
