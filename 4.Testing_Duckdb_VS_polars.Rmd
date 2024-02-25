@@ -1,21 +1,12 @@
 ---
 title: "Testing-duckplyr_Vs_Polars"
 output:
-  html_notebook:
-    highlight: tango
-    df_print: paged
-    toc: true
-    toc_float:
-      collapsed: false
-      smooth_scroll: false
-    number_sections: false
-    toc_depth: 6
-  html_document:
+  github_document:
     keep_md: true
     toc: true
     toc_depth: '6'
     df_print: paged
-date: "2024-02-25"
+date: "2024-02-26"
 ---
 
 ```{r setup, include=FALSE}
