@@ -1,6 +1,15 @@
 ---
 title: "Testing-duckplyr_Vs_Polars"
 output:
+  github_document:
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    toc_depth: 6
   html_notebook:
     highlight: tango
     df_print: paged
