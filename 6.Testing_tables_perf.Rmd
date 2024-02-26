@@ -1,0 +1,186 @@
+---
+title: "Tables performance"
+output:
+  html_document:
+    toc: true
+    toc_depth: '6'
+    df_print: paged
+  html_notebook:
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    toc_depth: 6
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+```{r}
+library(tidyverse)
+library(DT)
+library(gt)
+library(reactable)
+library(kableExtra)
+library(plotly)
+```
+
+```{r}
+df_head <- read_csv("bse_compiled_2023_04_13.csv") %>% head()
+df_head
+```
+
+# Tables
+
+## Tables Demo {.tabset}
+
+### DT
+
+```{r}
+df_head %>% DT::datatable()
+```
+
+### gt
+
+```{r}
+df_head %>% gt::gt()
+```
+
+### kableextra
+
+```{r}
+df_head %>% kable()
+```
+
+
+### Reactable
+
+```{r}
+df_head %>% reactable()
+```
+
+
+# Benchmarking
+
+```{r}
+library(profvis)
+```
+
+
+## profvis {.tabset}
+
+### DT
+
+```{r}
+profvis({
+  read_csv("bse_compiled_2023_04_13.csv") %>% 
+    DT::datatable()
+})
+
+```
+
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/10_DT_profvis.PNG)
+
+### gt
+
+```{r}
+profvis({
+  read_csv("bse_compiled_2023_04_13.csv") %>% 
+    gt::gt()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/11_gt_profvis.PNG)
+
+
+### kableExtra
+
+```{r}
+profvis({
+  read_csv("bse_compiled_2023_04_13.csv") %>% 
+    kableExtra::kbl()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/12_kbl_profvis.PNG)
+
+
+### Reactable
+
+```{r}
+profvis({
+  read_csv("bse_compiled_2023_04_13.csv") %>% 
+    reactable()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/13_react_profvis.PNG)
+
+## Stored Data bench
+
+```{r}
+df <- read_csv("bse_compiled_2023_04_13.csv")
+df %>% head()
+```
+
+
+## profvis {.tabset}
+
+### DT
+
+```{r}
+profvis({
+  df %>% 
+    DT::datatable()
+})
+```
+
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/14_DT_profvis.PNG)
+
+### gt
+
+```{r}
+profvis({
+  df %>% 
+    gt::gt()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/15_gt_profvis.PNG)
+
+
+### kableExtra
+
+```{r}
+profvis({
+  df %>% 
+    kableExtra::kbl()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/16_kbl_profvis.PNG)
+
+
+### Reactable
+
+```{r}
+profvis({
+  df %>% 
+    reactable()
+})
+```
+
+![profvis data](V:/1. R & Python work/3. R/Polars_in_R/17_react_profvis.PNG)
+
+
+
+
+
