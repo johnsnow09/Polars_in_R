@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 ```
 
 
-```{r cars}
+```{r}
 library(polars)
 library(tidyverse)
 library(microbenchmark)

@@ -27,6 +27,8 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 library(duckplyr)
 library(tidyverse)
 library(polars)
+library(data.table)
+library(dtplyr)
 library(microbenchmark)
 library(conflicted)
 conflict_prefer("filter", "duckplyr")
@@ -37,8 +39,14 @@ duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",table_function = "
 ```
 
 ```{r}
+data.table::fread("bse_compiled_2023_04_13.csv")
+```
+
+
+```{r}
 perf_7mb__duck <- microbenchmark(
                tidy = readr::read_csv("bse_compiled_2023_04_13.csv"),
+               data_table = data.table::fread("bse_compiled_2023_04_13.csv"),
                polars = pl$read_csv("bse_compiled_2023_04_13.csv"),
                polars_df = pl$read_csv("bse_compiled_2023_04_13.csv") |> as.data.frame(),
                duckplyr = duckplyr::duckplyr_df_from_file("bse_compiled_2023_04_13.csv",
@@ -61,6 +69,8 @@ autoplot(perf_7mb__duck)
 perf_test_duck_fn <- function(data_file){
   perf_data <<- microbenchmark(
                tidy = readr::read_csv(data_file) %>% head(n=10),
+               
+               data_table = data.table::fread("bse_compiled_2023_04_13.csv") %>% head(n=10),
                
                duckplyr = duckplyr::duckplyr_df_from_file(data_file,
                                                           table_function = "read_csv_auto") %>%
@@ -96,6 +106,8 @@ autoplot(perf_data)
 perf_test_duck_full <- function(data_file){
   perf_data <<- microbenchmark(
                tidy = readr::read_csv(data_file),
+               
+               data_table = data.table::fread(data_file),
                
                duckplyr = duckplyr::duckplyr_df_from_file(data_file,
                                                           table_function = "read_csv_auto"),
@@ -142,6 +154,7 @@ duckplyr::duckplyr_df_from_file("T_ONTIME_REPORTING.csv",
 
 ### 87mb file
 
+
 ```{r}
 perf_mainpulation <- microbenchmark(
           polars = pl$read_csv("T_ONTIME_REPORTING.csv")$
@@ -165,6 +178,11 @@ perf_mainpulation <- microbenchmark(
                     agg(pl$len()$alias("counts")) |> as.data.frame(),
           
           tidy = read_csv("T_ONTIME_REPORTING.csv") %>% 
+                  filter(ORIGIN == "JFK") %>% 
+                  group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
+                  summarise(counts = n()),
+          
+          data_table_dtplyr = data.table::fread("T_ONTIME_REPORTING.csv") %>% 
                   filter(ORIGIN == "JFK") %>% 
                   group_by(ORIGIN_CITY_NAME,DEST_CITY_NAME) %>% 
                   summarise(counts = n()),
